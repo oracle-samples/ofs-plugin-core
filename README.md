@@ -1,29 +1,24 @@
-# Project name
+# Oracle Field Service Plugin Core Library
 
-<!-- Describe your project's features, functionality and target audience -->
+This library provides an abstract class to quickstart the development of plugins for Oracle Field Service. It provides a core functionality that can be extended as needed.
+
+An active environment of Oracle Field Service is needed to develop and execute plugins.
 
 ## Installation
 
-<!-- Provide detailed step-by-step installation instructions -->
+1. If installing it from GitHub: `npm install https://github.com/oracle-samples/ofs-plugin-core.git`
 
-## Documentation
+2. To use the library in your code:
 
-<!-- Developer-oriented documentation can be published on GitHub, but all product
-     documentation must be published on <https://docs.oracle.com>. -->
+`import {OFSPlugin} from "@ofs_users/plugin"`
 
-## Examples
+## Documentation and examples
 
-<!-- Describe any included examples or provide a link to a demo/tutorial -->
+Please see the `docs/' directory for documentation and a simple example.
 
-## Help
-
-<!-- Inform users on where to get help or how to receive official support from Oracle
-     (if applicable). -->
+The main documentation for developing Oracle Field Service plugins is [here](https://docs.oracle.com/en/cloud/saas/field-service/fasdk/index.html)
 
 ## Contributing
-
-<!-- If your project has specific contribution requirements, update the
-    CONTRIBUTING.md file to ensure those requirements are clearly explained. -->
 
 This project welcomes contributions from the community. Before submitting a pull
 request, please [review our contribution guide](./CONTRIBUTING.md).
@@ -35,14 +30,7 @@ vulnerability disclosure process.
 
 ## License
 
-<!-- The correct copyright notice format for both documentation and software
-    is "Copyright (c) [year,] year Oracle and/or its affiliates."
-    You must include the year the content was first released (on any platform) and
-    the most recent year in which it was revised. -->
-
 Copyright (c) 2023 Oracle and/or its affiliates.
-
-<!-- Replace this statement if your project is not licensed under the UPL -->
 
 Released under the Universal Permissive License v1.0 as shown at
 <https://oss.oracle.com/licenses/upl/>.
