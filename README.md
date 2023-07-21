@@ -6,11 +6,13 @@ An active environment of Oracle Field Service is needed to develop and execute p
 
 ## Installation
 
-1. If installing it from GitHub: `npm install https://github.com/oracle-samples/ofs-plugin-core.git`
+1. If installing it from GitHub: 
+   
+   `npm install https://github.com/oracle-samples/ofs-plugin-core.git`
 
 2. To use the library in your code:
-
-`import {OFSPlugin} from "@ofs_users/plugin"`
+   
+    `import {OFSPlugin} from "@ofs_users/plugin"`
 
 ## Documentation and examples
 
