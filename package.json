@@ -40,6 +40,6 @@
   },
   "license": "UPL-1.0",
   "dependencies": {
-    "@ofs-users/proxy": "https://github.com/oracle-samples/ofs-proxy-js.git"
+    "@ofs-users/proxy": "^1.5.0"
   }
 }
