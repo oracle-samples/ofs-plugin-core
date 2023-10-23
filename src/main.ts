@@ -64,6 +64,7 @@ export abstract class OFSPlugin {
         console.log(`${this._tag}: Message received:`, message.data);
         console.log(`${this._tag}: Coming from ${message.origin}`);
         var parsed_message = OFSMessage.parse(message.data);
+        this._storeCredentials(parsed_message);
         switch (parsed_message.method) {
             case "init":
                 this._init(parsed_message);
@@ -90,6 +91,15 @@ export abstract class OFSPlugin {
 
     private async _init(message: OFSMessage) {
         // Processing securedData variables
+        this.init(message);
+        var messageData: OFSMessage = {
+            apiVersion: 1,
+            method: "initEnd",
+        };
+        this._sendWebMessage(messageData);
+    }
+
+    private _storeCredentials(message: OFSMessage) {
         if (message.securedData) {
             console.log(`${this._tag}: Processing`, message.securedData);
             // STEP 1: are we going to create a proxy?
@@ -103,21 +113,8 @@ export abstract class OFSPlugin {
                     clientId: message.securedData.ofsClientId,
                     clientSecret: message.securedData.ofsClientSecret,
                 });
-                var result = await this._proxy.getSubscriptions();
-                console.log(
-                    `${this._tag}: Connection with ${message.securedData.ofsInstance} successful: `,
-                    result.status == 200
-                );
             }
-            // STEP 2: do we need to store type information?
-            // TBD
         }
-        this.init(message);
-        var messageData: OFSMessage = {
-            apiVersion: 1,
-            method: "initEnd",
-        };
-        this._sendWebMessage(messageData);
     }
 
     private static _getOriginURL(url: string) {
