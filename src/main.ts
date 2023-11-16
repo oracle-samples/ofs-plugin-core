@@ -12,7 +12,11 @@ export class OFSMessage {
     sendInitData?: boolean;
 
     static parse(str: string) {
-        return Object.assign(new OFSMessage(), JSON.parse(str)) as OFSMessage;
+        try {
+            return Object.assign(new OFSMessage(), JSON.parse(str)) as OFSMessage;
+        } catch (error) {
+            return new OFSMessage()
+        }
     }
 }
 
@@ -63,6 +67,7 @@ export abstract class OFSPlugin {
     private _getWebMessage(message: MessageEvent): boolean {
         console.log(`${this._tag}: Message received:`, message.data);
         console.log(`${this._tag}: Coming from ${message.origin}`);
+        // Validate that it is a valid OFS message
         var parsed_message = OFSMessage.parse(message.data);
         switch (parsed_message.method) {
             case "init":
@@ -80,6 +85,8 @@ export abstract class OFSPlugin {
             case "error":
                 this.error(parsed_message);
                 break;
+            case "no method":
+                console.warn(`${this._tag}: Message discarded`)
 
             default:
                 throw new Error(`Unknown method ${parsed_message.method}`);
@@ -133,7 +140,7 @@ export abstract class OFSPlugin {
     private _sendWebMessage(data: OFSMessage) {
         console.log(
             `${this._tag}: Sending  message` +
-                JSON.stringify(data, undefined, 4)
+            JSON.stringify(data, undefined, 4)
         );
         var originUrl =
             document.referrer ||
