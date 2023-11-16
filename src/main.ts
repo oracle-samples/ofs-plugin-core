@@ -87,6 +87,7 @@ export abstract class OFSPlugin {
                 break;
             case "no method":
                 console.warn(`${this._tag}: Message discarded`)
+                break;
 
             default:
                 throw new Error(`Unknown method ${parsed_message.method}`);
