@@ -36,6 +36,10 @@ export class OFSOpenMessage extends OFSMessage {
   entity: string | undefined;
 }
 
+export class OFSCallProcedureResultMessage extends OFSMessage {
+  resultData: any | undefined;
+}
+
 export class OFSCloseMessage extends OFSMessage {
   method: string = "close";
   activity?: any;
@@ -83,7 +87,9 @@ export abstract class OFSPlugin {
         this.updateResult(parsed_message);
         break;
       case "callProcedureResult":
-        this.callProcedureResult(parsed_message);
+        this.callProcedureResult(
+          parsed_message as OFSCallProcedureResultMessage
+        );
         break;
       case "wakeUp":
         this.wakeup(parsed_message);
