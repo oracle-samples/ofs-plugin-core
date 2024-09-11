@@ -5,7 +5,7 @@
   ],
   "name": "@ofs-users/plugin",
   "type": "module",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Oracle Field Service plugin base code",
   "main": "dist/ofs-plugin.es.js",
   "module": "dist/ofs-plugin.es.js",
