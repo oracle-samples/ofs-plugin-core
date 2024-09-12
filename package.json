@@ -40,6 +40,6 @@
   },
   "license": "UPL-1.0",
   "dependencies": {
-    "@ofs-users/proxy": "^1.7.1"
+    "@ofs-users/proxy": "^1.9.0"
   }
 }

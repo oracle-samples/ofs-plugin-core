@@ -3,7 +3,7 @@
  * Licensed under the Universal Permissive License (UPL), Version 1.0  as shown at https://oss.oracle.com/licenses/upl/
  */
 
-import { OFS } from "@ofs-users/proxy";
+import { OFS, OFSCredentials } from "@ofs-users/proxy";
 
 export class OFSMessage {
     apiVersion: number = -1;
@@ -85,7 +85,7 @@ export abstract class OFSPlugin {
      * @param message Message received
      * @returns
      */
-    private _getWebMessage(message: MessageEvent): boolean {
+    private async _getWebMessage(message: MessageEvent): Promise<boolean> {
         console.log(`${this._tag}: Message received:`, message.data);
         console.log(`${this._tag}: Coming from ${message.origin}`);
         // Validate that it is a valid OFS message
@@ -98,18 +98,20 @@ export abstract class OFSPlugin {
                 break;
             case "open":
                 globalThis.waitForProxy = false;
+                this._createProxy(parsed_message);
                 var iteration: number = 0;
                 while (globalThis.waitForProxy) {
                     // I need to wait for the Proxy creation
                     console.debug(
                         `${this._tag}: Waiting for the Proxy creation`
                     );
-                    this._sleep(100).then(() =>
-                        console.log("Slept for 1 second")
-                    );
+                    await this._sleep(100);
+                    console.log("Slept for 100 ms");
                     iteration++;
                     if (iteration > 10) {
                         console.error(`${this._tag}: Proxy creation problem`);
+                        globalThis.waitForProxy = false;
+                        break;
                     }
                 }
                 this.open(parsed_message as OFSOpenMessage);
@@ -151,26 +153,47 @@ export abstract class OFSPlugin {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    // Example usage:
-
-    private _generateCallId() {
-        const randomBytes = new Uint8Array(16);
-        var randomValue = window.crypto.getRandomValues(randomBytes);
-        return randomValue;
+    private _generateCallId(): string {
+        const characters =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        let result = "";
+        const charactersLength = characters.length;
+        for (let i = 0; i < charactersLength; i++) {
+            result += characters.charAt(
+                Math.floor(Math.random() * charactersLength)
+            );
+        }
+        return result;
     }
     private _createProxy(message: OFSMessage) {
         var applications = this.getInitProperty("applications");
-        console.debug(`${this.tag}. Applications Data `, applications);
+
         if (applications != null) {
+            console.debug(
+                `${this.tag}. Applications Data Information ${JSON.stringify(
+                    applications
+                )}`
+            );
+            applications = JSON.parse(applications);
             for (const [key, value] of Object.entries(applications)) {
                 var applicationKey: string = key;
                 var application: any = value as OFSInitMessage_applications;
                 console.debug(
-                    `$${this.tag}. Application Type ${application.type}`
+                    `${this.tag}. Application ${JSON.stringify(application)}`
+                );
+                console.debug(
+                    `${this.tag}. Application Type ${application.type}`
                 );
                 if (application.type == "ofs") {
                     this.storeInitProperty("baseURL", application.resourceUrl);
-                    var callId: string = `${this._generateCallId()}`;
+                    console.debug(
+                        `${
+                            this.tag
+                        }. I have stored the property baseURL ${this.getInitProperty(
+                            "baseURL"
+                        )}`
+                    );
+                    var callId = this._generateCallId();
                     globalThis.callId = callId;
                     var callProcedureData = {
                         callId: callId,
@@ -180,9 +203,7 @@ export abstract class OFSPlugin {
                         },
                     };
                     console.debug(
-                        `$${
-                            this.tag
-                        }. Message to get the Token ${JSON.stringify(
+                        `${this.tag}. Message to get the Token ${JSON.stringify(
                             callProcedureData
                         )}`
                     );
@@ -210,7 +231,10 @@ export abstract class OFSPlugin {
     }
     private _storeInitData(message: OFSInitMessage) {
         if (message.applications) {
-            this.storeInitProperty("applications", message.applications);
+            this.storeInitProperty(
+                "applications",
+                JSON.stringify(message.applications)
+            );
         }
     }
     public storeInitProperty(property: string, data: any) {
@@ -306,19 +330,30 @@ export abstract class OFSPlugin {
         parsed_message: OFSCallProcedureResultMessage
     ) {
         console.debug(
-            `$${
+            `${
                 this.tag
             }. Call Procedure Result Received message ${JSON.stringify(
                 parsed_message
             )}`
         );
+        var baseURLOFS = this.getInitProperty("baseURL");
+        var OFSCredentials: OFSCredentials = {
+            baseURL: baseURLOFS,
+            token: parsed_message.resultData.token,
+        };
+        console.debug(
+            `${
+                this.tag
+            }. I will create the proxy with this data ${JSON.stringify(
+                OFSCredentials
+            )}`
+        );
         if ((parsed_message.callId = globalThis.callId)) {
-            this._proxy = new OFS({
-                baseURL: this.getInitProperty("baseURL"),
-                token: parsed_message.resultData.token,
-            });
+            this._proxy = new OFS(OFSCredentials);
             globalThis.waitForProxy = false;
-            console.debug(`$${this.tag}. I have created the proxy`);
+            console.debug(
+                `${this.tag}. I have created the proxy with Authorization string ${this._proxy.authorization} baseURL ${this._proxy.baseURL} `
+            );
         } else {
             this.callProcedureResult(
                 parsed_message as OFSCallProcedureResultMessage
