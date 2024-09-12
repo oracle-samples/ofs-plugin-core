@@ -58,6 +58,7 @@ export class OFSCloseMessage extends OFSMessage {
 
 declare global {
     var callId: string;
+    var waitForProxy: boolean;
 }
 export abstract class OFSPlugin {
     private _proxy!: OFS;
@@ -96,7 +97,21 @@ export abstract class OFSPlugin {
                 this._init(parsed_message);
                 break;
             case "open":
-                this.__createProxy(parsed_message);
+                globalThis.waitForProxy = false;
+                var iteration: number = 0;
+                while (globalThis.waitForProxy) {
+                    // I need to wait for the Proxy creation
+                    console.debug(
+                        `${this._tag}: Waiting for the Proxy creation`
+                    );
+                    this._sleep(100).then(() =>
+                        console.log("Slept for 1 second")
+                    );
+                    iteration++;
+                    if (iteration > 10) {
+                        console.error(`${this._tag}: Proxy creation problem`);
+                    }
+                }
                 this.open(parsed_message as OFSOpenMessage);
                 break;
             case "updateResult":
@@ -132,14 +147,20 @@ export abstract class OFSPlugin {
         };
         this._sendWebMessage(messageData);
     }
+    private _sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    // Example usage:
+
     private _generateCallId() {
         const randomBytes = new Uint8Array(16);
         var randomValue = window.crypto.getRandomValues(randomBytes);
         return randomValue;
     }
-    private __createProxy(message: OFSMessage) {
+    private _createProxy(message: OFSMessage) {
         var applications = this.getInitProperty("applications");
-        console.debug(`$${this.tag}. Applications Data `, applications);
+        console.debug(`${this.tag}. Applications Data `, applications);
         if (applications != null) {
             for (const [key, value] of Object.entries(applications)) {
                 var applicationKey: string = key;
@@ -166,6 +187,7 @@ export abstract class OFSPlugin {
                         )}`
                     );
                     this.callProcedure(callProcedureData);
+                    globalThis.waitForProxy = true;
                     return;
                 }
             }
@@ -192,7 +214,7 @@ export abstract class OFSPlugin {
         }
     }
     public storeInitProperty(property: string, data: any) {
-        console.debug(`$${this.tag}.${property}: Storing ${property}`, data);
+        console.debug(`${this.tag}.${property}: Storing ${property}`, data);
         window.localStorage.setItem(`${this.tag}.${property}`, data);
     }
 
@@ -295,6 +317,7 @@ export abstract class OFSPlugin {
                 baseURL: this.getInitProperty("baseURL"),
                 token: parsed_message.resultData.token,
             });
+            globalThis.waitForProxy = false;
             console.debug(`$${this.tag}. I have created the proxy`);
         } else {
             this.callProcedureResult(
