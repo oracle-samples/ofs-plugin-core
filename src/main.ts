@@ -139,11 +139,15 @@ export abstract class OFSPlugin {
     }
     private __createProxy(message: OFSMessage) {
         var applications = this.getInitProperty("applications");
+        console.debug(`$${this.tag}. Applications Data `, applications);
         if (applications != null) {
             for (const [key, value] of Object.entries(applications)) {
                 var applicationKey: string = key;
                 var application: any = value as OFSInitMessage_applications;
-                if (application.type === "ofs") {
+                console.debug(
+                    `$${this.tag}. Application Type ${application.type}`
+                );
+                if (application.type == "ofs") {
                     this.storeInitProperty("baseURL", application.resourceUrl);
                     var callId: string = `${this._generateCallId()}`;
                     globalThis.callId = callId;
@@ -154,6 +158,13 @@ export abstract class OFSPlugin {
                             applicationKey: applicationKey,
                         },
                     };
+                    console.debug(
+                        `$${
+                            this.tag
+                        }. Message to get the Token ${JSON.stringify(
+                            callProcedureData
+                        )}`
+                    );
                     this.callProcedure(callProcedureData);
                     return;
                 }
@@ -272,11 +283,19 @@ export abstract class OFSPlugin {
     private _callProcedureResult(
         parsed_message: OFSCallProcedureResultMessage
     ) {
+        console.debug(
+            `$${
+                this.tag
+            }. Call Procedure Result Received message ${JSON.stringify(
+                parsed_message
+            )}`
+        );
         if ((parsed_message.callId = globalThis.callId)) {
             this._proxy = new OFS({
                 baseURL: this.getInitProperty("baseURL"),
                 token: parsed_message.resultData.token,
             });
+            console.debug(`$${this.tag}. I have created the proxy`);
         } else {
             this.callProcedureResult(
                 parsed_message as OFSCallProcedureResultMessage
