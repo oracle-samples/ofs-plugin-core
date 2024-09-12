@@ -6,208 +6,281 @@
 import { OFS } from "@ofs-users/proxy";
 
 export class OFSMessage {
-  apiVersion: number = -1;
-  method: string = "no method";
-  securedData?: any;
-  sendInitData?: boolean;
+    apiVersion: number = -1;
+    method: string = "no method";
+    securedData?: any;
+    sendInitData?: boolean;
 
-  static parse(str: string) {
-    try {
-      return Object.assign(new OFSMessage(), JSON.parse(str)) as OFSMessage;
-    } catch (error) {
-      return new OFSMessage();
+    static parse(str: string) {
+        try {
+            return Object.assign(
+                new OFSMessage(),
+                JSON.parse(str)
+            ) as OFSMessage;
+        } catch (error) {
+            return new OFSMessage();
+        }
     }
-  }
 }
 
 export enum Method {
-  Close = "close",
-  Open = "open",
-  Update = "update",
-  UpdateResult = "updateResult",
-  Init = "init",
-  Ready = "ready",
-  InitEnd = "initEnd",
-  CallProcedureResult = "callProcedureResult",
-  CallProcedure = "callProcedure",
+    Close = "close",
+    Open = "open",
+    Update = "update",
+    UpdateResult = "updateResult",
+    Init = "init",
+    Ready = "ready",
+    InitEnd = "initEnd",
+    CallProcedureResult = "callProcedureResult",
+    CallProcedure = "callProcedure",
 }
 
 export class OFSOpenMessage extends OFSMessage {
-  entity: string | undefined;
+    entity: string | undefined;
 }
 
+export class OFSInitMessage extends OFSMessage {
+    applications: any | undefined;
+}
+export class OFSInitMessage_applications {
+    type: string | undefined;
+    resourceUrl: string | undefined;
+}
 export class OFSCallProcedureResultMessage extends OFSMessage {
-  resultData: any | undefined;
+    callId: string | undefined;
+    resultData: any | undefined;
 }
 
 export class OFSCloseMessage extends OFSMessage {
-  method: string = "close";
-  activity?: any;
+    method: string = "close";
+    activity?: any;
 }
 
+declare global {
+    var callId: string;
+}
 export abstract class OFSPlugin {
-  private _proxy!: OFS;
-  private _tag: string;
+    private _proxy!: OFS;
+    private _tag: string;
 
-  constructor(tag: string) {
-    console.log(`${tag}: Created`);
+    constructor(tag: string) {
+        console.log(`${tag}: Created`);
 
-    this._tag = tag;
+        this._tag = tag;
 
-    this._setup();
-  }
+        this._setup();
+    }
 
-  get proxy(): OFS {
-    return this._proxy;
-  }
+    get proxy(): OFS {
+        return this._proxy;
+    }
 
-  get tag(): string {
-    return this._tag;
-  }
+    get tag(): string {
+        return this._tag;
+    }
 
-  /**
-   * Processes received messages
-   * @param message Message received
-   * @returns
-   */
-  private _getWebMessage(message: MessageEvent): boolean {
-    console.log(`${this._tag}: Message received:`, message.data);
-    console.log(`${this._tag}: Coming from ${message.origin}`);
-    // Validate that it is a valid OFS message
-    var parsed_message = OFSMessage.parse(message.data);
-    this._storeCredentials(parsed_message);
-    switch (parsed_message.method) {
-      case "init":
-        this._init(parsed_message);
-        break;
-      case "open":
-        this.open(parsed_message as OFSOpenMessage);
-        break;
-      case "updateResult":
-        this.updateResult(parsed_message);
-        break;
-      case "callProcedureResult":
-        this.callProcedureResult(
-          parsed_message as OFSCallProcedureResultMessage
+    /**
+     * Processes received messages
+     * @param message Message received
+     * @returns
+     */
+    private _getWebMessage(message: MessageEvent): boolean {
+        console.log(`${this._tag}: Message received:`, message.data);
+        console.log(`${this._tag}: Coming from ${message.origin}`);
+        // Validate that it is a valid OFS message
+        var parsed_message = OFSMessage.parse(message.data);
+
+        switch (parsed_message.method) {
+            case "init":
+                this._storeInitData(parsed_message as OFSInitMessage);
+                this._init(parsed_message);
+                break;
+            case "open":
+                this.__createProxy(parsed_message);
+                this.open(parsed_message as OFSOpenMessage);
+                break;
+            case "updateResult":
+                this.updateResult(parsed_message);
+                break;
+            case "callProcedureResult":
+                this._callProcedureResult(
+                    parsed_message as OFSCallProcedureResultMessage
+                );
+                break;
+            case "wakeUp":
+                this.wakeup(parsed_message);
+                break;
+            case "error":
+                this.error(parsed_message);
+                break;
+            case "no method":
+                console.warn(`${this._tag}: Message discarded`);
+                break;
+
+            default:
+                throw new Error(`Unknown method ${parsed_message.method}`);
+                break;
+        }
+        return true;
+    }
+
+    private async _init(message: OFSMessage) {
+        this.init(message);
+        var messageData: OFSMessage = {
+            apiVersion: 1,
+            method: "initEnd",
+        };
+        this._sendWebMessage(messageData);
+    }
+    private _generateCallId() {
+        const randomBytes = new Uint8Array(16);
+        var randomValue = window.crypto.getRandomValues(randomBytes);
+        return randomValue;
+    }
+    private __createProxy(message: OFSMessage) {
+        var applications = this.getInitProperty("applications");
+        if (applications != null) {
+            for (const [key, value] of Object.entries(applications)) {
+                var applicationKey: string = key;
+                var application: any = value as OFSInitMessage_applications;
+                if (application.type === "ofs") {
+                    this.storeInitProperty("baseURL", application.resourceUrl);
+                    var callId: string = `${this._generateCallId()}`;
+                    globalThis.callId = callId;
+                    var callProcedureData = {
+                        callId: callId,
+                        procedure: "getAccessToken",
+                        params: {
+                            applicationKey: applicationKey,
+                        },
+                    };
+                    this.callProcedure(callProcedureData);
+                    return;
+                }
+            }
+        }
+        if (message.securedData) {
+            console.log(`${this._tag}: Processing`, message.securedData);
+            // STEP 1: are we going to create a proxy?
+            if (
+                message.securedData.ofsInstance &&
+                message.securedData.ofsClientId &&
+                message.securedData.ofsClientSecret
+            ) {
+                this._proxy = new OFS({
+                    instance: message.securedData.ofsInstance,
+                    clientId: message.securedData.ofsClientId,
+                    clientSecret: message.securedData.ofsClientSecret,
+                });
+            }
+        }
+    }
+    private _storeInitData(message: OFSInitMessage) {
+        if (message.applications) {
+            this.storeInitProperty("applications", message.applications);
+        }
+    }
+    public storeInitProperty(property: string, data: any) {
+        console.debug(`$${this.tag}.${property}: Storing ${property}`, data);
+        window.localStorage.setItem(`${this.tag}.${property}`, data);
+    }
+
+    public getInitProperty(property: string): any {
+        var data = window.localStorage.getItem(`${this.tag}.${property}`);
+        return data;
+    }
+    private static _getOriginURL(url: string) {
+        if (url != "") {
+            if (url.indexOf("://") > -1) {
+                return "https://" + url.split("/")[2];
+            } else {
+                return "https://" + url.split("/")[0];
+            }
+        }
+        return "";
+    }
+    private _sendWebMessage(data: OFSMessage) {
+        console.log(
+            `${this._tag}: Sending  message` +
+                JSON.stringify(data, undefined, 4)
         );
-        break;
-      case "wakeUp":
-        this.wakeup(parsed_message);
-        break;
-      case "error":
-        this.error(parsed_message);
-        break;
-      case "no method":
-        console.warn(`${this._tag}: Message discarded`);
-        break;
+        var originUrl =
+            document.referrer ||
+            (document.location.ancestorOrigins &&
+                document.location.ancestorOrigins[0]) ||
+            "";
 
-      default:
-        throw new Error(`Unknown method ${parsed_message.method}`);
-        break;
+        if (originUrl) {
+            parent.postMessage(data, OFSPlugin._getOriginURL(originUrl));
+        }
     }
-    return true;
-  }
 
-  private async _init(message: OFSMessage) {
-    this.init(message);
-    var messageData: OFSMessage = {
-      apiVersion: 1,
-      method: "initEnd",
-    };
-    this._sendWebMessage(messageData);
-  }
-
-  private _storeCredentials(message: OFSMessage) {
-    if (message.securedData) {
-      console.log(`${this._tag}: Processing`, message.securedData);
-      // STEP 1: are we going to create a proxy?
-      if (
-        message.securedData.ofsInstance &&
-        message.securedData.ofsClientId &&
-        message.securedData.ofsClientSecret
-      ) {
-        this._proxy = new OFS({
-          instance: message.securedData.ofsInstance,
-          clientId: message.securedData.ofsClientId,
-          clientSecret: message.securedData.ofsClientSecret,
+    public sendMessage(method: Method, data?: any): void {
+        this._sendWebMessage({
+            apiVersion: 1,
+            method: method,
+            ...data,
         });
-      }
     }
-  }
 
-  private static _getOriginURL(url: string) {
-    if (url != "") {
-      if (url.indexOf("://") > -1) {
-        return "https://" + url.split("/")[2];
-      } else {
-        return "https://" + url.split("/")[0];
-      }
+    private _setup() {
+        console.log("OFS plugin ready");
+        window.addEventListener(
+            "message",
+            this._getWebMessage.bind(this),
+            false
+        );
+        var messageData: OFSMessage = {
+            apiVersion: 1,
+            method: "ready",
+            sendInitData: true,
+        };
+        this._sendWebMessage(messageData);
     }
-    return "";
-  }
-  private _sendWebMessage(data: OFSMessage) {
-    console.log(
-      `${this._tag}: Sending  message` + JSON.stringify(data, undefined, 4)
-    );
-    var originUrl =
-      document.referrer ||
-      (document.location.ancestorOrigins &&
-        document.location.ancestorOrigins[0]) ||
-      "";
 
-    if (originUrl) {
-      parent.postMessage(data, OFSPlugin._getOriginURL(originUrl));
+    // There should be always an 'open' method
+    abstract open(data: OFSOpenMessage): void;
+
+    // These methods can be overwritten
+    init(message: OFSMessage) {
+        // Nothing to be done if not needed
+        console.warn(`${this._tag}: Empty init method`);
     }
-  }
 
-  public sendMessage(method: Method, data?: any): void {
-    this._sendWebMessage({
-      apiVersion: 1,
-      method: method,
-      ...data,
-    });
-  }
+    public close(data?: any): void {
+        this.sendMessage(Method.Close, data);
+    }
+    public callProcedure(data?: any): void {
+        this.sendMessage(Method.CallProcedure, data);
+    }
+    public update(data?: any): void {
+        this.sendMessage(Method.Update, data);
+    }
 
-  private _setup() {
-    console.log("OFS plugin ready");
-    window.addEventListener("message", this._getWebMessage.bind(this), false);
-    var messageData: OFSMessage = {
-      apiVersion: 1,
-      method: "ready",
-      sendInitData: true,
-    };
-    this._sendWebMessage(messageData);
-  }
-
-  // There should be always an 'open' method
-  abstract open(data: OFSOpenMessage): void;
-
-  // These methods can be overwritten
-  init(message: OFSMessage) {
-    // Nothing to be done if not needed
-    console.warn(`${this._tag}: Empty init method`);
-  }
-
-  public close(data?: any): void {
-    this.sendMessage(Method.Close, data);
-  }
-  public callProcedure(data?: any): void {
-    this.sendMessage(Method.CallProcedure, data);
-  }
-  public update(data?: any): void {
-    this.sendMessage(Method.Update, data);
-  }
-
-  error(parsed_message: OFSMessage) {
-    throw new Error("ERROR Method not implemented.");
-  }
-  wakeup(parsed_message: OFSMessage) {
-    throw new Error("WAKEUP Method not implemented.");
-  }
-  updateResult(parsed_message: OFSMessage) {
-    throw new Error("UPDATERESULT Method not implemented.");
-  }
-  callProcedureResult(parsed_message: OFSMessage) {
-    throw new Error("CALLPROCEDURERESULT Method not implemented.");
-  }
+    error(parsed_message: OFSMessage) {
+        throw new Error("ERROR Method not implemented.");
+    }
+    wakeup(parsed_message: OFSMessage) {
+        throw new Error("WAKEUP Method not implemented.");
+    }
+    updateResult(parsed_message: OFSMessage) {
+        throw new Error("UPDATERESULT Method not implemented.");
+    }
+    callProcedureResult(parsed_message: OFSCallProcedureResultMessage) {
+        throw new Error("CALLPROCEDURERESULT Method not implemented.");
+    }
+    private _callProcedureResult(
+        parsed_message: OFSCallProcedureResultMessage
+    ) {
+        if ((parsed_message.callId = globalThis.callId)) {
+            this._proxy = new OFS({
+                baseURL: this.getInitProperty("baseURL"),
+                token: parsed_message.resultData.token,
+            });
+        } else {
+            this.callProcedureResult(
+                parsed_message as OFSCallProcedureResultMessage
+            );
+        }
+    }
 }
