@@ -169,30 +169,12 @@ export abstract class OFSPlugin {
         var applications = this.getInitProperty("applications");
 
         if (applications != null) {
-            console.debug(
-                `${this.tag}. Applications Data Information ${JSON.stringify(
-                    applications
-                )}`
-            );
             applications = JSON.parse(applications);
             for (const [key, value] of Object.entries(applications)) {
                 var applicationKey: string = key;
                 var application: any = value as OFSInitMessage_applications;
-                console.debug(
-                    `${this.tag}. Application ${JSON.stringify(application)}`
-                );
-                console.debug(
-                    `${this.tag}. Application Type ${application.type}`
-                );
                 if (application.type == "ofs") {
                     this.storeInitProperty("baseURL", application.resourceUrl);
-                    console.debug(
-                        `${
-                            this.tag
-                        }. I have stored the property baseURL ${this.getInitProperty(
-                            "baseURL"
-                        )}`
-                    );
                     var callId = this._generateCallId();
                     globalThis.callId = callId;
                     var callProcedureData = {
@@ -203,7 +185,9 @@ export abstract class OFSPlugin {
                         },
                     };
                     console.debug(
-                        `${this.tag}. Message to get the Token ${JSON.stringify(
+                        `${
+                            this.tag
+                        }. I will request the Token forthe application ${applicationKey} with this message ${JSON.stringify(
                             callProcedureData
                         )}`
                     );
@@ -329,35 +313,40 @@ export abstract class OFSPlugin {
     private _callProcedureResult(
         parsed_message: OFSCallProcedureResultMessage
     ) {
-        console.debug(
-            `${
-                this.tag
-            }. Call Procedure Result Received message ${JSON.stringify(
-                parsed_message
-            )}`
-        );
-        var baseURLOFS = this.getInitProperty("baseURL");
-        var OFSCredentials: OFSCredentials = {
-            baseURL: baseURLOFS,
-            token: parsed_message.resultData.token,
-        };
-        console.debug(
-            `${
-                this.tag
-            }. I will create the proxy with this data ${JSON.stringify(
-                OFSCredentials
-            )}`
-        );
         if ((parsed_message.callId = globalThis.callId)) {
-            this._proxy = new OFS(OFSCredentials);
-            globalThis.waitForProxy = false;
-            console.debug(
-                `${this.tag}. I have created the proxy with Authorization string ${this._proxy.authorization} baseURL ${this._proxy.baseURL} `
-            );
-        } else {
-            this.callProcedureResult(
-                parsed_message as OFSCallProcedureResultMessage
-            );
+            var baseURLOFS = this.getInitProperty("baseURL");
+            if ("resultData" in parsed_message) {
+                if (
+                    "status" in parsed_message.resultData &&
+                    parsed_message.resultData == "success"
+                ) {
+                    var OFSCredentials: OFSCredentials = {
+                        baseURL: baseURLOFS,
+                        token: parsed_message.resultData.token,
+                    };
+                    console.debug(
+                        `${
+                            this.tag
+                        }. I will create the proxy with this data ${JSON.stringify(
+                            OFSCredentials
+                        )}`
+                    );
+                    this._proxy = new OFS(OFSCredentials);
+                    globalThis.waitForProxy = false;
+                    return;
+                }
+            } else {
+                console.error(
+                    `${
+                        this.tag
+                    }. Problems processing the Token Response ${JSON.stringify(
+                        parsed_message
+                    )}`
+                );
+            }
         }
+        this.callProcedureResult(
+            parsed_message as OFSCallProcedureResultMessage
+        );
     }
 }
