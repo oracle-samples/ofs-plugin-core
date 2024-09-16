@@ -318,7 +318,7 @@ export abstract class OFSPlugin {
             if ("resultData" in parsed_message) {
                 if (
                     "status" in parsed_message.resultData &&
-                    parsed_message.resultData == "success"
+                    parsed_message.resultData.status == "success"
                 ) {
                     var OFSCredentials: OFSCredentials = {
                         baseURL: baseURLOFS,
@@ -344,9 +344,13 @@ export abstract class OFSPlugin {
                     )}`
                 );
             }
+        } else {
+            console.debug(
+                `${this.tag}. CallId is not the one generated for getting the token '${globalThis.callId}' vs '${parsed_message.callId}'`
+            );
+            this.callProcedureResult(
+                parsed_message as OFSCallProcedureResultMessage
+            );
         }
-        this.callProcedureResult(
-            parsed_message as OFSCallProcedureResultMessage
-        );
     }
 }
