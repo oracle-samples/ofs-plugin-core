@@ -5,6 +5,94 @@
 
 import { OFS, OFSCredentials } from "@ofs-users/proxy";
 
+/**
+ * A lock for synchronizing async operations.
+ * Use this to protect a critical section
+ * from getting modified by multiple async operations
+ * at the same time.
+ */
+export class Mutex {
+    /**
+     * When multiple operations attempt to acquire the lock,
+     * this queue remembers the order of operations.
+     */
+    private _queue: {
+        resolve: (release: ReleaseFunction) => void;
+    }[] = [];
+
+    private _isLocked = false;
+
+    /**
+     * Wait until the lock is acquired.
+     * @returns A function that releases the acquired lock.
+     */
+    acquire() {
+        return new Promise<ReleaseFunction>((resolve) => {
+            this._queue.push({ resolve });
+            this._dispatch();
+        });
+    }
+
+    /**
+     * Enqueue a function to be run serially.
+     *
+     * This ensures no other functions will start running
+     * until `callback` finishes running.
+     * @param callback Function to be run exclusively.
+     * @returns The return value of `callback`.
+     */
+    async runExclusive<T>(callback: () => Promise<T>) {
+        const release = await this.acquire();
+        try {
+            return await callback();
+        } finally {
+            release();
+        }
+    }
+
+    /**
+     * Check the availability of the resource
+     * and provide access to the next operation in the queue.
+     *
+     * _dispatch is called whenever availability changes,
+     * such as after lock acquire request or lock release.
+     */
+    private _dispatch() {
+        if (this._isLocked) {
+            // The resource is still locked.
+            // Wait until next time.
+            return;
+        }
+        const nextEntry = this._queue.shift();
+        if (!nextEntry) {
+            // There is nothing in the queue.
+            // Do nothing until next dispatch.
+            return;
+        }
+        // The resource is available.
+        this._isLocked = true; // Lock it.
+        // and give access to the next operation
+        // in the queue.
+        nextEntry.resolve(this._buildRelease());
+    }
+
+    /**
+     * Build a release function for each operation
+     * so that it can release the lock after
+     * the operation is complete.
+     */
+    private _buildRelease(): ReleaseFunction {
+        return () => {
+            // Each release function make
+            // the resource available again
+            this._isLocked = false;
+            // and call dispatch.
+            this._dispatch();
+        };
+    }
+}
+
+type ReleaseFunction = () => void;
 export class OFSMessage {
     apiVersion: number = -1;
     method: string = "no method";
@@ -63,6 +151,8 @@ declare global {
 export abstract class OFSPlugin {
     private _proxy!: OFS;
     private _tag: string;
+    private _mutex: Mutex = new Mutex();
+    private _release: any;
 
     constructor(tag: string) {
         console.log(`${tag}: Created`);
@@ -97,24 +187,11 @@ export abstract class OFSPlugin {
                 this._init(parsed_message);
                 break;
             case "open":
-                globalThis.waitForProxy = false;
+                //globalThis.waitForProxy = false;
                 this._createProxy(parsed_message);
-                var iteration: number = 0;
-                while (globalThis.waitForProxy) {
-                    // I need to wait for the Proxy creation
-                    console.debug(
-                        `${this._tag}: Waiting for the Proxy creation`
-                    );
-                    await this._sleep(100);
-                    console.log("Slept for 100 ms");
-                    iteration++;
-                    if (iteration > 30) {
-                        console.error(`${this._tag}: Proxy creation problem`);
-                        globalThis.waitForProxy = false;
-                        break;
-                    }
-                }
+                this._release = await this._mutex.acquire();
                 this.open(parsed_message as OFSOpenMessage);
+                this._release();
                 break;
             case "updateResult":
                 this.updateResult(parsed_message);
@@ -165,7 +242,7 @@ export abstract class OFSPlugin {
         }
         return result;
     }
-    private _createProxy(message: OFSMessage) {
+    private async _createProxy(message: OFSMessage) {
         var applications = this.getInitProperty("applications");
 
         if (applications != null) {
@@ -187,12 +264,13 @@ export abstract class OFSPlugin {
                     console.debug(
                         `${
                             this.tag
-                        }. I will request the Token forthe application ${applicationKey} with this message ${JSON.stringify(
+                        }. I will request the Token for the application ${applicationKey} with this message ${JSON.stringify(
                             callProcedureData
                         )}`
                     );
                     this.callProcedure(callProcedureData);
-                    globalThis.waitForProxy = true;
+                    //globalThis.waitForProxy = true;
+                    this._release = await this._mutex.acquire();
                     return;
                 }
             }
@@ -327,12 +405,12 @@ export abstract class OFSPlugin {
                     console.debug(
                         `${
                             this.tag
-                        }. I will create the proxy with this data ${JSON.stringify(
+                        }. I will create the proxy with this credentials ${JSON.stringify(
                             OFSCredentials
                         )}`
                     );
                     this._proxy = new OFS(OFSCredentials);
-                    globalThis.waitForProxy = false;
+                    this._release();
                     return;
                 }
             } else {
@@ -343,6 +421,7 @@ export abstract class OFSPlugin {
                         parsed_message
                     )}`
                 );
+                this._release();
             }
         } else {
             console.debug(
