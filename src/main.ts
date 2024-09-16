@@ -108,7 +108,7 @@ export abstract class OFSPlugin {
                     await this._sleep(100);
                     console.log("Slept for 100 ms");
                     iteration++;
-                    if (iteration > 10) {
+                    if (iteration > 30) {
                         console.error(`${this._tag}: Proxy creation problem`);
                         globalThis.waitForProxy = false;
                         break;
