@@ -313,7 +313,7 @@ export abstract class OFSPlugin {
     private _callProcedureResult(
         parsed_message: OFSCallProcedureResultMessage
     ) {
-        if ((parsed_message.callId = globalThis.callId)) {
+        if ((parsed_message.callId == globalThis.callId)) {
             var baseURLOFS = this.getInitProperty("baseURL");
             if ("resultData" in parsed_message) {
                 if (
