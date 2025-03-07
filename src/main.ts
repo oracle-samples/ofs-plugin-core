@@ -11,6 +11,13 @@ export class OFSMessage {
     securedData?: any;
     sendInitData?: boolean;
 
+   //Start : Issue#17
+   enableBackButton?:boolean; 
+   showHeader?: boolean;
+   sendMessageAsJsObject?: boolean;
+   dataItems?: Array<string>;
+   //End : Issue#17 
+
     static parse(str: string) {
         try {
             return Object.assign(
@@ -69,7 +76,7 @@ export abstract class OFSPlugin {
 
         this._tag = tag;
 
-        this._setup();
+        //this._setup(); //Issue#17: Method converted to public and needs to be invoked explicitly by the implementing calss.
     }
 
     get proxy(): OFS {
@@ -264,7 +271,32 @@ export abstract class OFSPlugin {
         });
     }
 
-    private _setup() {
+    //Issue#17: Converted to a public method allowing implementing plugin to pass additional parameters to OFS. 
+    //The Implementing plugin will need to call this method explicitly unlike before where it was auto called in constructor.
+    /**
+     * Setups event listeners and initiates the communication between Plugin & OFS by sending 'ready' message.
+     * @param {boolean} sendInitData defaults to true
+     * @param {boolean} enableBackButton defaults to true
+     * @param {boolean} showHeader defaults to true
+     * @param {boolean} sendMessageAsJsObject defaults to false
+     * @param {Array<string>} dataItems defatuls to null
+     * 
+     * @example
+     * ``` ts
+     * //Implement the OFS Plugin
+     * class MyPlugin Extends OFSPlugin{
+     *  constructor () {
+     *      super("myPlugin");
+     *  }
+     * }
+     * 
+     * let myPluginInstance = new MyPlugin(); //instantiate your plugin
+     * myPluginInstance.Setup(); //call 'Setup' method to start communication with OFS
+     * 
+     * ```
+     * For details see: https://docs.oracle.com/en/cloud/saas/field-service/fapcf/c-readymethod-new.html
+     */
+    public Setup(sendInitData:boolean = true, enableBackButton:boolean = true, showHeader:boolean = true, sendMessageAsJsObject:boolean = false, dataItems?:Array<string>) {
         console.log("OFS plugin ready");
         window.addEventListener(
             "message",
@@ -274,8 +306,14 @@ export abstract class OFSPlugin {
         var messageData: OFSMessage = {
             apiVersion: 1,
             method: "ready",
-            sendInitData: true,
+            sendInitData: sendInitData,
+            enableBackButton: enableBackButton,
+            showHeader: showHeader,
+            sendMessageAsJsObject: sendMessageAsJsObject,
         };
+        if(dataItems){
+            messageData.dataItems = dataItems;
+        }
         this._sendWebMessage(messageData);
     }
 
