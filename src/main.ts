@@ -149,12 +149,10 @@ export abstract class OFSPlugin {
     }
 
     private async _init(message: OFSMessage) {
-        this.init(message);
-        var messageData: OFSMessage = {
-            apiVersion: 1,
-            method: "initEnd",
-        };
-        this._sendWebMessage(messageData);
+        //Issue#18: Awaits the init method to finish and receives message data for initEnd message in return 
+        this.init(message).then((messageData)=>{
+            this._sendWebMessage(messageData);
+        })
     }
     private _sleep(ms: number): Promise<void> {
         return new Promise((resolve) => setTimeout(resolve, ms));
@@ -321,9 +319,29 @@ export abstract class OFSPlugin {
     abstract open(data: OFSOpenMessage): void;
 
     // These methods can be overwritten
-    init(message: OFSMessage) {
-        // Nothing to be done if not needed
-        console.warn(`${this._tag}: Empty init method`);
+    
+    //Issue#18
+    /**
+     * Performs plugin initialization tasks before sending the initEnd message to OFS.
+     * Must return a promise that resolves to an OFSMessage. The resolved OFSMessage is sent to OFS as initEnd.
+     * Implementing plugin can override this method and add additional properties to the messageData e.g. wakeup settings etc.
+     * 
+     * For details, See: https://docs.oracle.com/en/cloud/saas/field-service/fapcf/c-initendmethod.html
+     * 
+     * @param message 
+     * @returns {Promise<OFSMessage>}  
+     */
+    init(message: OFSMessage): Promise<OFSMessage> {
+        //Issue#18: returns a promise with a minimal initEnd messageData by default. 
+        return new Promise((resolve,reject)=>{
+            // Nothing to be done if not needed
+            console.warn(`${this._tag}: Empty init method`);
+            var messageData: OFSMessage = {
+                apiVersion: 1,
+                method: "initEnd",
+            };
+            resolve(messageData);
+        })
     }
 
     public close(data?: any): void {
