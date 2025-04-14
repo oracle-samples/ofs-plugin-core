@@ -11,12 +11,12 @@ export class OFSMessage {
     securedData?: any;
     sendInitData?: boolean;
 
-   //Start : Issue#17
-   enableBackButton?:boolean; 
-   showHeader?: boolean;
-   sendMessageAsJsObject?: boolean;
-   dataItems?: Array<string>;
-   //End : Issue#17 
+    //Start : Issue#17
+    enableBackButton?:boolean; 
+    showHeader?: boolean;
+    sendMessageAsJsObject?: boolean;
+    dataItems?: Array<string>;
+    //End : Issue#17
 
     static parse(str: string) {
         try {
@@ -312,14 +312,8 @@ export abstract class OFSPlugin {
         var messageData: OFSMessage = {
             apiVersion: 1,
             method: "ready",
-            sendInitData: sendInitData,
-            enableBackButton: enableBackButton,
-            showHeader: showHeader,
-            sendMessageAsJsObject: sendMessageAsJsObject,
+            sendInitData: true,
         };
-        if(dataItems){
-            messageData.dataItems = dataItems;
-        }
         this._sendWebMessage(messageData);
     }
 
@@ -377,7 +371,7 @@ export abstract class OFSPlugin {
     private _callProcedureResult(
         parsed_message: OFSCallProcedureResultMessage
     ) {
-        if ((parsed_message.callId == globalThis.callId)) {
+        if (parsed_message.callId == globalThis.callId) {
             var baseURLOFS = this.getInitProperty("baseURL");
             if ("resultData" in parsed_message) {
                 if (
