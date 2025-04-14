@@ -138,7 +138,7 @@ export abstract class OFSPlugin {
                     parsed_message as OFSCallProcedureResultMessage
                 );
                 break;
-            case "wakeUp":
+            case "wakeup":
                 this.wakeup(parsed_message);
                 break;
             case "error":
