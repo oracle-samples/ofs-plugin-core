@@ -292,7 +292,7 @@ export abstract class OFSPlugin {
      * //Implement the OFS Plugin
      * class MyPlugin Extends OFSPlugin{
      *  constructor () {
-     *      super("myPlugin", true);
+     *      super("myPlugin", true); //set the 2nd paramter to true to override setup method call.
      *  }
      * }
      * 
@@ -312,7 +312,13 @@ export abstract class OFSPlugin {
         var messageData: OFSMessage = {
             apiVersion: 1,
             method: "ready",
-            sendInitData: true,
+            sendInitData: sendInitData,
+            enableBackButton: enableBackButton,
+            showHeader: showHeader,
+            sendMessageAsJsObject: sendMessageAsJsObject,
+        };
+        if(dataItems){
+            messageData.dataItems = dataItems;
         };
         this._sendWebMessage(messageData);
     }
