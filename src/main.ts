@@ -11,6 +11,13 @@ export class OFSMessage {
     securedData?: any;
     sendInitData?: boolean;
 
+    //Start : Issue#17
+    enableBackButton?:boolean; 
+    showHeader?: boolean;
+    sendMessageAsJsObject?: boolean;
+    dataItems?: Array<string>;
+    //End : Issue#17
+
     static parse(str: string) {
         try {
             return Object.assign(
@@ -64,12 +71,19 @@ export abstract class OFSPlugin {
     private _proxy!: OFS;
     private _tag: string;
 
-    constructor(tag: string) {
+    /**
+     * 
+     * @param {string} tag Plugin Tag/Name
+     * @param {boolean} [initOverride = false] Defaults to false. When false, invokes the Setup method implicitly and sends the ready message to OFS Core immediatly. When set to true, allows the implementing plugin call the Setup function explicitly. This allows the implementing plugin to control when Plugin starts communication with OFS Core application.
+     */
+    constructor(tag: string, initOverride: boolean = false) {
         console.log(`${tag}: Created`);
 
         this._tag = tag;
-
-        this._setup();
+        //For backward compatibility. When initOverride param is not provided in contructor, the setup mothod would be called automatically without requiring the plugins to make any changes in their implementation. 
+        if(!initOverride){
+            this.setup(); //Issue#17: Method converted to public and can be invoked explicitly by the implementing calss.
+        }
     }
 
     get proxy(): OFS {
@@ -142,12 +156,10 @@ export abstract class OFSPlugin {
     }
 
     private async _init(message: OFSMessage) {
-        this.init(message);
-        var messageData: OFSMessage = {
-            apiVersion: 1,
-            method: "initEnd",
-        };
-        this._sendWebMessage(messageData);
+        //Issue#18: Awaits the init method to finish and receives message data for initEnd message in return 
+        this.init(message).then((messageData)=>{
+            this._sendWebMessage(messageData);
+        })
     }
     private _sleep(ms: number): Promise<void> {
         return new Promise((resolve) => setTimeout(resolve, ms));
@@ -264,7 +276,33 @@ export abstract class OFSPlugin {
         });
     }
 
-    private _setup() {
+    // Issue#17: Converted to a public method allowing implementing plugin to pass additional parameters to OFS. 
+    /**
+     * Setups event listeners and initiates the communication between Plugin & OFS by sending 'ready' message.
+     * The Implementing plugin can can call this method explicitly unlike before where it was auto called in constructor only. For that, 
+     * Plugin needs to pass an additional parameter to constructor 'initOverride' as true. otherwise, this function is auto called implicitly.
+     * @param {boolean} sendInitData defaults to true
+     * @param {boolean} enableBackButton defaults to true
+     * @param {boolean} showHeader defaults to true
+     * @param {boolean} sendMessageAsJsObject defaults to false
+     * @param {Array<string>} dataItems defatuls to null
+     * 
+     * @example
+     * ``` ts
+     * //Implement the OFS Plugin
+     * class MyPlugin Extends OFSPlugin{
+     *  constructor () {
+     *      super("myPlugin", true); //set the 2nd paramter to true to override setup method call.
+     *  }
+     * }
+     * 
+     * let myPluginInstance = new MyPlugin(); //instantiate your plugin
+     * myPluginInstance.Setup(); //call 'Setup' method to start communication with OFS
+     * 
+     * ```
+     * For details see: https://docs.oracle.com/en/cloud/saas/field-service/fapcf/c-readymethod-new.html
+     */
+    public setup(sendInitData:boolean = true, enableBackButton:boolean = true, showHeader:boolean = true, sendMessageAsJsObject:boolean = false, dataItems?:Array<string>) {
         console.log("OFS plugin ready");
         window.addEventListener(
             "message",
@@ -274,7 +312,13 @@ export abstract class OFSPlugin {
         var messageData: OFSMessage = {
             apiVersion: 1,
             method: "ready",
-            sendInitData: true,
+            sendInitData: sendInitData,
+            enableBackButton: enableBackButton,
+            showHeader: showHeader,
+            sendMessageAsJsObject: sendMessageAsJsObject,
+        };
+        if(dataItems){
+            messageData.dataItems = dataItems;
         };
         this._sendWebMessage(messageData);
     }
@@ -283,9 +327,29 @@ export abstract class OFSPlugin {
     abstract open(data: OFSOpenMessage): void;
 
     // These methods can be overwritten
-    init(message: OFSMessage) {
-        // Nothing to be done if not needed
-        console.warn(`${this._tag}: Empty init method`);
+    
+    //Issue#18
+    /**
+     * Performs plugin initialization tasks before sending the initEnd message to OFS.
+     * Must return a promise that resolves to an OFSMessage. The resolved OFSMessage is sent to OFS as initEnd.
+     * Implementing plugin can override this method and add additional properties to the messageData e.g. wakeup settings etc.
+     * 
+     * For details, See: https://docs.oracle.com/en/cloud/saas/field-service/fapcf/c-initendmethod.html
+     * 
+     * @param message 
+     * @returns {Promise<OFSMessage>}  
+     */
+    init(message: OFSMessage): Promise<OFSMessage> {
+        //Issue#18: returns a promise with a minimal initEnd messageData by default. 
+        return new Promise((resolve,reject)=>{
+            // Nothing to be done if not needed
+            console.warn(`${this._tag}: Empty init method`);
+            var messageData: OFSMessage = {
+                apiVersion: 1,
+                method: "initEnd",
+            };
+            resolve(messageData);
+        })
     }
 
     public close(data?: any): void {
