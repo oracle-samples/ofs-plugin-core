@@ -100,17 +100,19 @@ export abstract class OFSPlugin {
      * @returns
      */
     private async _getWebMessage(message: MessageEvent): Promise<boolean> {
-        console.log(`${this._tag}: Message received:`, message.data);
-        console.log(`${this._tag}: Coming from ${message.origin}`);
         // Validate that it is a valid OFS message
         var parsed_message = OFSMessage.parse(message.data);
+        console.log(`${this._tag}: Message received - method: ${parsed_message.method}`);
+        console.log(`${this._tag}: Coming from ${message.origin}`);
 
         switch (parsed_message.method) {
             case "init":
+                console.debug(`${this._tag}: Processing init message`);
                 this._storeInitData(parsed_message as OFSInitMessage);
                 this._init(parsed_message);
                 break;
             case "open":
+                console.debug(`${this._tag}: Processing open message`);
                 globalThis.waitForProxy = false;
                 this._createProxy(parsed_message);
                 var iteration: number = 0;
@@ -131,17 +133,21 @@ export abstract class OFSPlugin {
                 this.open(parsed_message as OFSOpenMessage);
                 break;
             case "updateResult":
+                console.debug(`${this._tag}: Processing updateResult message`);
                 this.updateResult(parsed_message);
                 break;
             case "callProcedureResult":
+                console.debug(`${this._tag}: Processing callProcedureResult - callId: ${(parsed_message as OFSCallProcedureResultMessage).callId}`);
                 this._callProcedureResult(
                     parsed_message as OFSCallProcedureResultMessage
                 );
                 break;
             case "wakeup":
+                console.debug(`${this._tag}: Processing wakeup message`);
                 this.wakeup(parsed_message);
                 break;
             case "error":
+                console.debug(`${this._tag}: Processing error message`);
                 this.error(parsed_message);
                 break;
             case "no method":
@@ -393,11 +399,7 @@ export abstract class OFSPlugin {
                 }
             } else {
                 console.error(
-                    `${
-                        this.tag
-                    }. Problems processing the Token Response ${JSON.stringify(
-                        parsed_message
-                    )}`
+                    `${this.tag}. Problems processing the Token Response - missing resultData`
                 );
             }
         } else {
