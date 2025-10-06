@@ -197,11 +197,7 @@ export abstract class OFSPlugin {
                         },
                     };
                     console.debug(
-                        `${
-                            this.tag
-                        }. I will request the Token forthe application ${applicationKey} with this message ${JSON.stringify(
-                            callProcedureData
-                        )}`
+                        `${this.tag}. Requesting token for application ${applicationKey}`
                     );
                     this.callProcedure(callProcedureData);
                     globalThis.waitForProxy = true;
@@ -389,11 +385,7 @@ export abstract class OFSPlugin {
                         token: parsed_message.resultData.token,
                     };
                     console.debug(
-                        `${
-                            this.tag
-                        }. I will create the proxy with this data ${JSON.stringify(
-                            OFSCredentials
-                        )}`
+                        `${this.tag}. Creating proxy with provided credentials`
                     );
                     this._proxy = new OFS(OFSCredentials);
                     globalThis.waitForProxy = false;
