@@ -7,14 +7,22 @@
   "type": "module",
   "version": "1.5.0",
   "description": "Oracle Field Service plugin base code",
-  "main": "dist/ofs-plugin.es.js",
+  "main": "dist/ofs-plugin.cjs",
   "module": "dist/ofs-plugin.es.js",
   "types": "dist/main.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/ofs-plugin.es.js",
+      "require": "./dist/ofs-plugin.cjs",
+      "types": "./dist/main.d.ts"
+    }
+  },
   "repository": {
     "url": "https://github.com/oracle-samples/ofs-plugin-core.git"
   },
   "scripts": {
     "build": "tsc",
+    "build:cjs": "rollup --config rollup.config.cjs.mjs",
     "start": "ts-node src/index.ts",
     "test": "jest",
     "prepare": "rollup --config rollup.config.mjs"
