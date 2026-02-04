@@ -5,7 +5,7 @@
   ],
   "name": "@ofs-users/plugin",
   "type": "module",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "description": "Oracle Field Service plugin base code",
   "main": "dist/ofs-plugin.es.js",
   "module": "dist/ofs-plugin.es.js",
@@ -26,6 +26,7 @@
   ],
   "author": "borja.toron@oracle.com",
   "devDependencies": {
+    "rollup": "^3.29.0",
     "@rollup/plugin-terser": "^0.2.1",
     "@rollup/plugin-typescript": "^10.0.1",
     "buffer": "^6.0.3",

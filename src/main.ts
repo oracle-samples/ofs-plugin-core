@@ -5,6 +5,12 @@
 
 import { OFS, OFSCredentials } from "@ofs-users/proxy";
 
+export interface OFSEnvironment {
+    environmentName?: string;
+    fsUrl?: string;
+    faUrl?: string;
+}
+
 export class OFSMessage {
     apiVersion: number = -1;
     method: string = "no method";
@@ -42,12 +48,55 @@ export enum Method {
     CallProcedure = "callProcedure",
 }
 
+export enum BackScreen {
+    Default = "default",
+    OpenForm = "open_form",
+    RestoreFormDraft = "restore_form_draft",
+    OpenFormSubmit = "open_form_submit"
+}
+
+export enum Procedure {
+    GetAccessToken = "getAccessToken",
+    GetAccessTokenByScope = "getAccessTokenByScope",
+    GetFormDrafts = "getFormDrafts",
+    GetSubmittedForms = "getSubmittedForms"
+}
+
+export interface OFSCloseData {
+    activity?: any;
+    backScreen?: BackScreen | string;
+    backFormLabel?: string;
+    backActivityId?: string;
+    backInventoryId?: string;
+    backResourceId?: string;
+    backFormParams?: Record<string, any>;
+    backDraftId?: string;
+    backFormSubmitId?: string;
+}
+
+export interface GetAccessTokenByScopeParams {
+    scope: string;
+}
+
+export interface GetFormDraftsParams {
+    // No parameters required
+}
+
+export interface GetSubmittedFormsParams {
+    resourceInternalId?: string;
+    activityId?: string;
+    inventoryId?: string;
+    formLabel?: string;
+}
+
 export class OFSOpenMessage extends OFSMessage {
     entity: string | undefined;
+    environment?: OFSEnvironment;
 }
 
 export class OFSInitMessage extends OFSMessage {
     applications: any | undefined;
+    environment?: OFSEnvironment;
 }
 export class OFSInitMessage_applications {
     type: string | undefined;
@@ -63,6 +112,14 @@ export class OFSCloseMessage extends OFSMessage {
     activity?: any;
 }
 
+export class OFSUpdateResultMessage extends OFSMessage {
+    environment?: OFSEnvironment;
+}
+
+export class OFSWakeupMessage extends OFSMessage {
+    environment?: OFSEnvironment;
+}
+
 declare global {
     var callId: string;
     var waitForProxy: boolean;
@@ -70,6 +127,7 @@ declare global {
 export abstract class OFSPlugin {
     private _proxy!: OFS;
     private _tag: string;
+    private _environment?: OFSEnvironment;
 
     /**
      * 
@@ -94,6 +152,10 @@ export abstract class OFSPlugin {
         return this._tag;
     }
 
+    get environment(): OFSEnvironment | undefined {
+        return this._environment;
+    }
+
     /**
      * Processes received messages
      * @param message Message received
@@ -109,6 +171,7 @@ export abstract class OFSPlugin {
             case "init":
                 console.debug(`${this._tag}: Processing init message`);
                 this._storeInitData(parsed_message as OFSInitMessage);
+                this._storeEnvironment(parsed_message as OFSInitMessage);
                 this._init(parsed_message);
                 break;
             case "open":
@@ -130,11 +193,13 @@ export abstract class OFSPlugin {
                         break;
                     }
                 }
+                this._storeEnvironment(parsed_message as OFSOpenMessage);
                 this.open(parsed_message as OFSOpenMessage);
                 break;
             case "updateResult":
                 console.debug(`${this._tag}: Processing updateResult message`);
-                this.updateResult(parsed_message);
+                this._storeEnvironment(parsed_message as OFSUpdateResultMessage);
+                this.updateResult(parsed_message as OFSUpdateResultMessage);
                 break;
             case "callProcedureResult":
                 console.debug(`${this._tag}: Processing callProcedureResult - callId: ${(parsed_message as OFSCallProcedureResultMessage).callId}`);
@@ -144,7 +209,8 @@ export abstract class OFSPlugin {
                 break;
             case "wakeup":
                 console.debug(`${this._tag}: Processing wakeup message`);
-                this.wakeup(parsed_message);
+                this._storeEnvironment(parsed_message as OFSWakeupMessage);
+                this.wakeup(parsed_message as OFSWakeupMessage);
                 break;
             case "error":
                 console.debug(`${this._tag}: Processing error message`);
@@ -171,7 +237,7 @@ export abstract class OFSPlugin {
         return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    private _generateCallId(): string {
+    protected _generateCallId(): string {
         const characters =
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         let result = "";
@@ -235,6 +301,13 @@ export abstract class OFSPlugin {
             );
         }
     }
+
+    private _storeEnvironment(message: { environment?: OFSEnvironment }) {
+        if (message.environment) {
+            this._environment = message.environment;
+        }
+    }
+
     public storeInitProperty(property: string, data: any) {
         console.debug(`${this.tag}.${property}: Storing ${property}`, data);
         window.localStorage.setItem(`${this.tag}.${property}`, data);
@@ -354,12 +427,89 @@ export abstract class OFSPlugin {
         })
     }
 
-    public close(data?: any): void {
+    public close(data?: OFSCloseData): void {
         this.sendMessage(Method.Close, data);
     }
+
+    public closeAndOpenForm(
+        formLabel: string,
+        options?: {
+            activity?: any;
+            activityId?: string;
+            inventoryId?: string;
+            resourceId?: string;
+            formParams?: Record<string, any>;
+        }
+    ): void {
+        this.close({
+            activity: options?.activity,
+            backScreen: BackScreen.OpenForm,
+            backFormLabel: formLabel,
+            backActivityId: options?.activityId,
+            backInventoryId: options?.inventoryId,
+            backResourceId: options?.resourceId,
+            backFormParams: options?.formParams
+        });
+    }
+
+    public closeAndRestoreDraft(
+        formLabel: string,
+        draftId: string,
+        options?: {
+            activityId?: string;
+            inventoryId?: string;
+        }
+    ): void {
+        this.close({
+            backScreen: BackScreen.RestoreFormDraft,
+            backFormLabel: formLabel,
+            backDraftId: draftId,
+            backActivityId: options?.activityId,
+            backInventoryId: options?.inventoryId
+        });
+    }
+
+    public closeAndOpenSubmittedForm(formSubmitId: string): void {
+        this.close({
+            backScreen: BackScreen.OpenFormSubmit,
+            backFormSubmitId: formSubmitId
+        });
+    }
+
     public callProcedure(data?: any): void {
         this.sendMessage(Method.CallProcedure, data);
     }
+
+    public getAccessTokenByScope(scope: string): string {
+        const callId = this._generateCallId();
+        this.callProcedure({
+            callId,
+            procedure: Procedure.GetAccessTokenByScope,
+            params: { scope }
+        });
+        return callId;
+    }
+
+    public getFormDrafts(): string {
+        const callId = this._generateCallId();
+        this.callProcedure({
+            callId,
+            procedure: Procedure.GetFormDrafts,
+            params: {}
+        });
+        return callId;
+    }
+
+    public getSubmittedForms(params?: GetSubmittedFormsParams): string {
+        const callId = this._generateCallId();
+        this.callProcedure({
+            callId,
+            procedure: Procedure.GetSubmittedForms,
+            params: params || {}
+        });
+        return callId;
+    }
+
     public update(data?: any): void {
         this.sendMessage(Method.Update, data);
     }
@@ -367,10 +517,10 @@ export abstract class OFSPlugin {
     error(parsed_message: OFSMessage) {
         throw new Error("ERROR Method not implemented.");
     }
-    wakeup(parsed_message: OFSMessage) {
+    wakeup(parsed_message: OFSWakeupMessage) {
         throw new Error("WAKEUP Method not implemented.");
     }
-    updateResult(parsed_message: OFSMessage) {
+    updateResult(parsed_message: OFSUpdateResultMessage) {
         throw new Error("UPDATERESULT Method not implemented.");
     }
     callProcedureResult(parsed_message: OFSCallProcedureResultMessage) {
