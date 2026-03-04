@@ -52,7 +52,8 @@ export enum BackScreen {
     Default = "default",
     OpenForm = "open_form",
     RestoreFormDraft = "restore_form_draft",
-    OpenFormSubmit = "open_form_submit"
+    OpenFormSubmit = "open_form_submit",
+    PluginByLabel = "plugin_by_label"
 }
 
 export enum Procedure {
