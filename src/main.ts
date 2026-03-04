@@ -67,10 +67,12 @@ export interface OFSCloseData {
     activity?: any;
     backScreen?: BackScreen | string;
     backFormLabel?: string;
+    backPluginLabel?: string;
     backActivityId?: string;
     backInventoryId?: string;
     backResourceId?: string;
     backFormParams?: Record<string, any>;
+    backPluginOpenParams?: Record<string, any>;
     backDraftId?: string;
     backFormSubmitId?: string;
 }
