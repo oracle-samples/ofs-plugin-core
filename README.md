@@ -18,6 +18,33 @@ An active environment of Oracle Field Service is needed to develop and execute p
 
 Please see the `docs/' directory for documentation and a simple example.
 
+## Oracle JET (OJET) / RequireJS compatibility
+
+Starting with `@ofs-users/plugin@1.7.0`, this package publishes both ESM and AMD artifacts:
+
+- ESM default: `dist/ofs-plugin.es.js`
+- AMD subpath: `@ofs-users/plugin/amd` (`dist/ofs-plugin.amd.js`)
+
+When integrating in OJET/RequireJS projects, use the AMD artifact and configure RequireJS paths to stable module IDs.
+
+Example RequireJS path mapping:
+
+```js
+requirejs.config({
+  paths: {
+    "@ofs-users/plugin": "libs/ofs-plugin/ofs-plugin",
+    "@ofs-users/proxy": "libs/ofs-proxy/ofs-proxy"
+  }
+});
+```
+
+Recommended runtime module IDs:
+
+- `@ofs-users/plugin/amd`
+- `@ofs-users/proxy/amd`
+
+If your OJET optimizer expects runtime libs under app-local `src/js/libs/...`, copy the package AMD files to that location during your build sync step.
+
 The main documentation for developing Oracle Field Service plugins is [here](https://docs.oracle.com/en/cloud/saas/field-service/fasdk/index.html)
 
 ## Contributing
