@@ -252,7 +252,77 @@ export abstract class OFSPlugin {
         }
         return result;
     }
+    private _isFusionFieldServiceEnvironment(
+        environment?: OFSEnvironment
+    ): boolean {
+        return !!environment?.faUrl;
+    }
+
+    private _buildFusionAccessTokenScope(
+        environment?: OFSEnvironment
+    ): string | undefined {
+        const environmentName = environment?.environmentName?.trim();
+
+        if (!environmentName) {
+            return undefined;
+        }
+
+        return `urn:opc:resource:fusion:${environmentName.toLowerCase()}:field-service-common/use`;
+    }
+
+    private _storeBaseURL(resourceUrl?: string, environment?: OFSEnvironment) {
+        const baseURL = resourceUrl || environment?.fsUrl;
+
+        if (baseURL) {
+            this.storeInitProperty("baseURL", baseURL);
+        }
+    }
+
+    private _requestAccessToken(
+        environment?: OFSEnvironment,
+        applicationKey?: string
+    ): boolean {
+        const callId = this._generateCallId();
+        let callProcedureData: any;
+
+        if (this._isFusionFieldServiceEnvironment(environment)) {
+            const scope = this._buildFusionAccessTokenScope(environment);
+
+            if (!scope) {
+                console.error(
+                    `${this.tag}. Missing environmentName for Fusion Field Service token request`
+                );
+                return false;
+            }
+
+            callProcedureData = {
+                callId,
+                procedure: Procedure.GetAccessTokenByScope,
+                params: { scope },
+            };
+        } else {
+            if (!applicationKey) {
+                return false;
+            }
+
+            callProcedureData = {
+                callId,
+                procedure: Procedure.GetAccessToken,
+                params: {
+                    applicationKey,
+                },
+            };
+        }
+
+        globalThis.callId = callId;
+        console.debug(`${this.tag}. Requesting access token`, callProcedureData);
+        this.callProcedure(callProcedureData);
+        globalThis.waitForProxy = true;
+        return true;
+    }
+
     private _createProxy(message: OFSMessage) {
+        const environment = (message as { environment?: OFSEnvironment }).environment || this.environment;
         var applications = this.getInitProperty("applications");
 
         if (applications != null) {
@@ -261,23 +331,17 @@ export abstract class OFSPlugin {
                 var applicationKey: string = key;
                 var application: any = value as OFSInitMessage_applications;
                 if (application.type == "ofs") {
-                    this.storeInitProperty("baseURL", application.resourceUrl);
-                    var callId = this._generateCallId();
-                    globalThis.callId = callId;
-                    var callProcedureData = {
-                        callId: callId,
-                        procedure: "getAccessToken",
-                        params: {
-                            applicationKey: applicationKey,
-                        },
-                    };
-                    console.debug(
-                        `${this.tag}. Requesting token for application ${applicationKey}`
-                    );
-                    this.callProcedure(callProcedureData);
-                    globalThis.waitForProxy = true;
-                    return;
+                    this._storeBaseURL(application.resourceUrl, environment);
+                    if (this._requestAccessToken(environment, applicationKey)) {
+                        return;
+                    }
                 }
+            }
+        }
+        if (this._isFusionFieldServiceEnvironment(environment)) {
+            this._storeBaseURL(undefined, environment);
+            if (this._requestAccessToken(environment)) {
+                return;
             }
         }
         if (message.securedData) {
