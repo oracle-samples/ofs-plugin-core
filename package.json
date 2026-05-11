@@ -27,7 +27,7 @@
   "author": "borja.toron@oracle.com",
   "devDependencies": {
     "rollup": "^3.29.0",
-    "@rollup/plugin-terser": "^0.2.1",
+    "@rollup/plugin-terser": "^1.0.0",
     "@rollup/plugin-typescript": "^10.0.1",
     "buffer": "^6.0.3",
     "css-loader": "^6.7.3",
