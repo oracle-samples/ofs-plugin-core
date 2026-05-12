@@ -7,11 +7,18 @@ import typescript from "@rollup/plugin-typescript";
 import terser from "@rollup/plugin-terser";
 export default {
     input: "src/main.ts",
-    output: {
-        name: "OFS",
-        file: "dist/ofs-plugin.es.js",
-        format: "es",
-    },
+    output: [
+        {
+            name: "OFS",
+            file: "dist/ofs-plugin.es.js",
+            format: "es",
+        },
+        {
+            name: "OFS",
+            file: "dist/ofs-plugin.amd.js",
+            format: "amd",
+        },
+    ],
     plugins: [
         typescript(),
         terser({
