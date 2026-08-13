@@ -322,7 +322,17 @@ export abstract class OFSPlugin {
     }
 
     private _createProxy(message: OFSMessage) {
-        const environment = (message as { environment?: OFSEnvironment }).environment || this.environment;
+        const environment =
+            (message as { environment?: OFSEnvironment }).environment ||
+            this.environment;
+
+        if (this._isFusionFieldServiceEnvironment(environment)) {
+            this._storeBaseURL(undefined, environment);
+            if (this._requestAccessToken(environment)) {
+                return;
+            }
+        }
+
         var applications = this.getInitProperty("applications");
 
         if (applications != null) {
@@ -336,12 +346,6 @@ export abstract class OFSPlugin {
                         return;
                     }
                 }
-            }
-        }
-        if (this._isFusionFieldServiceEnvironment(environment)) {
-            this._storeBaseURL(undefined, environment);
-            if (this._requestAccessToken(environment)) {
-                return;
             }
         }
         if (message.securedData) {

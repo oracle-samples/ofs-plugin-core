@@ -143,6 +143,16 @@ describe("Runtime bootstrap", () => {
             }
         }
 
+        window.localStorage.setItem(
+            "TestPlugin.applications",
+            JSON.stringify({
+                oauth: {
+                    type: "oauth_client_credentials",
+                    resourceUrl: "https://legacy-token-source.example.com/",
+                },
+            })
+        );
+
         const plugin = new TestPlugin();
         plugin._createProxy({
             environment: {
@@ -155,6 +165,63 @@ describe("Runtime bootstrap", () => {
         assert.deepEqual(plugin.calls, [
             {
                 callId: "fusion-call-id",
+                procedure: Procedure.GetAccessTokenByScope,
+                params: {
+                    scope: "urn:opc:resource:fusion:myenv:field-service-common/use",
+                },
+            },
+        ]);
+        assert.equal(
+            window.localStorage.getItem("TestPlugin.baseURL"),
+            "https://fieldservice.example.com"
+        );
+        assert.equal(globalThis.waitForProxy, true);
+    });
+
+    test("prioritizes FusionFS scope bootstrap over legacy application bootstrap", async () => {
+        const loaded = await loadSourceModule();
+        const { OFSPlugin, Procedure } = loaded.module;
+        cleanupModule = loaded.cleanup;
+
+        class TestPlugin extends OFSPlugin {
+            constructor() {
+                super("TestPlugin", true);
+                this.calls = [];
+            }
+
+            open() {}
+
+            callProcedure(data) {
+                this.calls.push(data);
+            }
+
+            _generateCallId() {
+                return "fusion-priority-call-id";
+            }
+        }
+
+        window.localStorage.setItem(
+            "TestPlugin.applications",
+            JSON.stringify({
+                legacyApp: {
+                    type: "ofs",
+                    resourceUrl: "https://legacy.example.com",
+                },
+            })
+        );
+
+        const plugin = new TestPlugin();
+        plugin._createProxy({
+            environment: {
+                environmentName: "MyEnv",
+                fsUrl: "https://fieldservice.example.com",
+                faUrl: "https://fusion.example.com",
+            },
+        });
+
+        assert.deepEqual(plugin.calls, [
+            {
+                callId: "fusion-priority-call-id",
                 procedure: Procedure.GetAccessTokenByScope,
                 params: {
                     scope: "urn:opc:resource:fusion:myenv:field-service-common/use",
